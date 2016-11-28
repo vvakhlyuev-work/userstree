@@ -1,0 +1,29 @@
+{% set flavor_name = flavor_name or "m1.tiny" %}
+{
+    "NovaServers.boot_and_delete_server_tree": [
+        {
+            "args": {
+                "flavor": {
+                    "name": "{{flavor_name}}"
+                },
+                "image": {
+                    "name": "^cirros.*uec$"
+                },
+                "force_delete": false
+            },
+            "runner": {
+                "type": "constant",
+                "times": 3,
+                "concurrency": 2
+            },
+            "context": {
+                 "userstree_context": {
+                    "tree_height": 2,
+                    "departmental_tenants": 1,
+                    "childs_per_parent": 2,
+                    "users_per_tenant": 1
+                }
+            }
+        }
+    ]
+}

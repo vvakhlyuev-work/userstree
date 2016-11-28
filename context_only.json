@@ -1,0 +1,26 @@
+{
+    "Dummy.dummy": [
+        {
+            "args": {
+                "sleep": 0.05
+            },
+            "runner": {
+                "type": "constant",
+                "times": 1,
+                "concurrency": 1
+            },
+            "context": {
+                 "userstree_context": {
+                    "tree_height": 2,
+                    "departmental_tenants": 1,
+                    "childs_per_parent": 2,
+                    "users_per_tenant": 1
+                },
+                "users": {
+                    "tenants": 3,
+                    "users_per_tenant": 1
+                }
+            }
+        }
+    ]
+}
