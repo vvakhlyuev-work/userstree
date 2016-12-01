@@ -17,6 +17,7 @@ import collections
 import random
 import uuid
 
+import exceptions
 import six
 from oslo_config import cfg
 from rally import consts
@@ -123,7 +124,7 @@ class UsersTreeContext(context.Context):
         """Pass one random user to scenario"""
         scenario_ctx = {}
         for key, value in six.iteritems(context_obj):
-            if key not in ["users", "tenants"]:
+            if key not in ["tree_users", "tree_tenants"]:
                 scenario_ctx[key] = value
 
         user = random.choice(context_obj["users"])
@@ -146,7 +147,7 @@ class UsersTreeContext(context.Context):
             return
 
         for user, tenant_id in rutils.iterate_per_tenants(
-                self.context["users"]):
+                self.context["tree_users"]):
             with logging.ExceptionLogger(
                     LOG, _("Unable to delete default security group")):
                 uclients = osclients.Clients(user["credential"])
@@ -169,7 +170,7 @@ class UsersTreeContext(context.Context):
 
         for net in nova_admin.networks.list():
             network_tenant_id = nova_admin.networks.get(net).project_id
-            if network_tenant_id in self.context["tenants"]:
+            if network_tenant_id in self.context["tree_tenants"]:
                 try:
                     nova_admin.networks.disassociate(net)
                 except Exception as ex:
@@ -197,10 +198,11 @@ class UsersTreeContext(context.Context):
         def consume(cache, args):
             domain, task_id, i, parent = args
 
-            clients = osclients.Clients(self.credential)
-            keystone = clients.keystone()
+            if "client" not in cache:
+                clients = osclients.Clients(self.credential)
+                cache["client"] = clients.keystone()
             LOG.debug("Creating project with parent %(parent)s" % {"parent": parent})
-            tenant = keystone.projects.create(self.generate_random_name(), domain, parent=parent)
+            tenant = cache["client"].projects.create(self.generate_random_name(), domain, parent=parent)
 
             tenant_dict = {"id": tenant.id, "name": tenant.name, "parent_id": parent, "users": []}
             tenants.append(tenant_dict)
@@ -216,14 +218,13 @@ class UsersTreeContext(context.Context):
     def _create_users(self):
         # NOTE(msdubov): This should be called after _create_tenants().
         threads = self.config["resource_management_workers"]
-        users_per_tenant = self.users_per_tenant
         default_role = cfg.CONF.users_context.keystone_default_role
 
         users = collections.deque()
 
         def publish(queue):
-            for tenant_id in self.context["tenants"]:
-                for user_id in range(users_per_tenant):
+            for tenant_id in self.context["tree_tenants"]:
+                for user_id in range(self.users_per_tenant):
                     username = self.generate_random_name()
                     password = str(uuid.uuid4())
                     args = (username, password, self.config["project_domain"],
@@ -243,7 +244,7 @@ class UsersTreeContext(context.Context):
                 default_role=default_role)
             user_credential = objects.Credential(
                 client.auth_url, user.name, password,
-                self.context["tenants"][tenant_id]["name"],
+                self.context["tree_tenants"][tenant_id]["name"],
                 consts.EndpointPermission.USER, client.region_name,
                 project_domain_name=project_dom, user_domain_name=user_dom,
                 endpoint_type=self.credential.endpoint_type,
@@ -261,7 +262,7 @@ class UsersTreeContext(context.Context):
         threads = self.config["resource_management_workers"]
 
         def publish(queue):
-            for user in self.context["users"]:
+            for user in self.context["tree_users"]:
                 queue.append(user["id"])
 
         def consume(cache, args):
@@ -269,25 +270,32 @@ class UsersTreeContext(context.Context):
             if "client" not in cache:
                 clients = osclients.Clients(self.credential)
                 cache["client"] = keystone.wrap(clients.keystone())
-            client = cache["client"]
-            client.delete_user(user_id)
+            cache["client"].delete_user(user_id)
 
         broker.run(publish, consume, threads)
-        self.context["users"] = []
+        self.context["tree_users"] = []
 
-    def _delete_tenants(self):
-        self._remove_associated_networks()
+    def _delete_tenants(self, from_index):
+        threads = self.config["resource_management_workers"]
+        tenants_to_delete = []
 
-        # No multi-threading there, because we should remove children first
-        # Which is hard to predict in multi-threaded env
-        # TODO: maybe delete recursively from departmental tenants?
-        clients = osclients.Clients(self.credential)
-        keystone = clients.keystone()
-        for tenant_id in reversed(self.context["tenants"].keys()):
+        def publish(queue):
+            for tenant_id in self.context["tree_tenants"].keys()[from_index:]:
+                queue.append(tenant_id)
+
+        def consume(cache, args):
+            tenant_id = args
+            if "client" not in cache:
+                clients = osclients.Clients(self.credential)
+                cache["client"] = keystone.wrap(clients.keystone())
             LOG.debug("Ready to delete tenant_id: %(tenant_id)s" % {"tenant_id": tenant_id})
-            keystone.projects.delete(tenant_id)
+            cache["client"].delete_project(tenant_id)
+            tenants_to_delete.append(tenant_id)
 
-        self.context["tenants"] = {}
+        broker.run(publish, consume, threads)
+        # Remove deleted tenants from context
+        for tenant_id in tenants_to_delete:
+            self.context["tree_tenants"].pop(tenant_id)
 
     @logging.log_task_wrapper(LOG.info, _("Enter context: `userstree_context`"))
     def setup(self):
@@ -300,23 +308,38 @@ class UsersTreeContext(context.Context):
                 LOG.debug("Level %(level)d. Expected %(amount)d tenants"
                       % {"level": tree_level, "amount": expected_amount})
                 tenants_on_level = self._create_tenants(parents)
-                LOG.debug("Actual %(amount)d tenants"
-                      % {"amount": len(tenants_on_level)})
+                if len(tenants_on_level) < expected_amount:
+                    raise exceptions.ContextSetupFailure(
+                        ctx_name=self.get_name(),
+                        msg=_("Failed to create the requested number of tenants."))
                 parents = tenants_on_level
                 tenants.update(parents)
         LOG.debug("Generated %(len)d tenants" % {"len": len(tenants)})
-        self.context["tenants"] = tenants
+        self.context["tree_tenants"] = tenants
 
-        self.context["users"] = self._create_users()
-        for user in self.context["users"]:
-            self.context["tenants"][user["tenant_id"]]["users"].append(user)
+        self.context["tree_users"] = self._create_users()
+        for user in self.context["tree_users"]:
+            self.context["tree_tenants"][user["tenant_id"]]["users"].append(user)
 
-        pass
+        expected_users = self.users_per_tenant * len(self.context["tree_tenants"])
+        if len(self.context["tree_users"]) < expected_users:
+            raise exceptions.ContextSetupFailure(
+                ctx_name=self.get_name(),
+                msg=_("Failed to create the requested number of users."))
 
     @logging.log_task_wrapper(LOG.info, _("Exit context: `userstree_context`"))
     def cleanup(self):
         """Perform cleanup"""
         self._remove_default_security_group()
         self._delete_users()
-        self._delete_tenants()
+        self._remove_associated_networks()
+        # Delete tenants by iterating from the tail (i.e. childs first)
+        for dep_tenant in range(self.departmental_tenants):
+            for tree_level in reversed(range(self.tree_height)):
+                expected_amount = self.childs_per_parent ** tree_level
+                from_index = len(self.context["tree_tenants"]) - expected_amount
+                self._delete_tenants(from_index)
+
+        self.context["tree_tenants"] = {}
+
 
