@@ -13,8 +13,8 @@
             },
             "runner": {
                 "type": "constant",
-                "times": 3,
-                "concurrency": 2
+                "times": 5,
+                "concurrency": 1
             },
             "context": {
                  "userstree_context": {
@@ -22,6 +22,15 @@
                     "departmental_tenants": 1,
                     "childs_per_parent": 2,
                     "users_per_tenant": 1
+                },
+                "users": {
+                    "tenants": 1,
+                    "users_per_tenant": 1
+                },
+                "treequotas": {
+                    "nova": {
+                        "instances": 1
+                    }
                 }
             }
         }

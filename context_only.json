@@ -2,7 +2,7 @@
     "Dummy.dummy": [
         {
             "args": {
-                "sleep": 0.05
+                "sleep": 0.01
             },
             "runner": {
                 "type": "constant",
@@ -11,14 +11,19 @@
             },
             "context": {
                  "userstree_context": {
-                    "tree_height": 5,
-                    "departmental_tenants": 5,
-                    "childs_per_parent": 5,
-                    "users_per_tenant": 5
+                    "tree_height": 2,
+                    "departmental_tenants": 1,
+                    "childs_per_parent": 2,
+                    "users_per_tenant": 1
                 },
                 "users": {
                     "tenants": 1,
                     "users_per_tenant": 1
+                },
+                "treequotas": {
+                    "nova": {
+                        "instances": 1
+                    }
                 }
             }
         }

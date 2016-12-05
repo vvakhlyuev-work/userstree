@@ -301,7 +301,7 @@ class UsersTreeContext(context.Context):
     def setup(self):
         tenants = collections.OrderedDict()
         for dep_tenant in range(self.departmental_tenants):
-            LOG.debug("Deprtmental tenant %(dep_tenant)d" % {"dep_tenant": dep_tenant})
+            LOG.debug("Departmental tenant %(dep_tenant)d" % {"dep_tenant": dep_tenant})
             parents = None
             for tree_level in range(self.tree_height):
                 expected_amount = self.childs_per_parent ** tree_level
