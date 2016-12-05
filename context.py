@@ -127,8 +127,8 @@ class UsersTreeContext(context.Context):
             if key not in ["tree_users", "tree_tenants"]:
                 scenario_ctx[key] = value
 
-        user = random.choice(context_obj["users"])
-        tenant = context_obj["tenants"][user["tenant_id"]]
+        user = random.choice(context_obj["tree_users"])
+        tenant = context_obj["tree_tenants"][user["tenant_id"]]
 
         scenario_ctx["user"], scenario_ctx["tenant"] = user, tenant
         return scenario_ctx
