@@ -1,0 +1,127 @@
+{
+  "NovaServers.boot_and_delete_server_tree": [
+    {
+      "args": {
+        "flavor": {
+          "name": "m1.tiny"
+        },
+        "force_delete": false,
+        "image": {
+          "name": "^cirros.*uec$"
+        }
+      },
+      "context": {
+        "treequotas": {
+          "nova": {
+            "instances": 4
+          }
+        },
+        "users": {
+          "project_domain": "default",
+          "resource_management_workers": 20,
+          "tenants": 1,
+          "user_choice_method": "random",
+          "user_domain": "default",
+          "users_per_tenant": 1
+        },
+        "userstree_context": {
+          "childs_per_parent": 3,
+          "departmental_tenants": 1,
+          "project_domain": "default",
+          "resource_management_workers": 20,
+          "tree_height": 4,
+          "user_choice_method": "random",
+          "user_domain": "default",
+          "users_per_tenant": 2
+        }
+      },
+      "runner": {
+        "concurrency": 4,
+        "times": 5,
+        "type": "constant"
+      }
+    },
+    {
+      "args": {
+        "flavor": {
+          "name": "m1.tiny"
+        },
+        "force_delete": false,
+        "image": {
+          "name": "^cirros.*uec$"
+        }
+      },
+      "context": {
+        "treequotas": {
+          "nova": {
+            "instances": 4
+          }
+        },
+        "users": {
+          "project_domain": "default",
+          "resource_management_workers": 20,
+          "tenants": 1,
+          "user_choice_method": "random",
+          "user_domain": "default",
+          "users_per_tenant": 1
+        },
+        "userstree_context": {
+          "childs_per_parent": 3,
+          "departmental_tenants": 5,
+          "project_domain": "default",
+          "resource_management_workers": 20,
+          "tree_height": 4,
+          "user_choice_method": "random",
+          "user_domain": "default",
+          "users_per_tenant": 2
+        }
+      },
+      "runner": {
+        "concurrency": 4,
+        "times": 5,
+        "type": "constant"
+      }
+    },
+    {
+      "args": {
+        "flavor": {
+          "name": "m1.tiny"
+        },
+        "force_delete": false,
+        "image": {
+          "name": "^cirros.*uec$"
+        }
+      },
+      "context": {
+        "treequotas": {
+          "nova": {
+            "instances": 4
+          }
+        },
+        "users": {
+          "project_domain": "default",
+          "resource_management_workers": 20,
+          "tenants": 1,
+          "user_choice_method": "random",
+          "user_domain": "default",
+          "users_per_tenant": 1
+        },
+        "userstree_context": {
+          "childs_per_parent": 3,
+          "departmental_tenants": 10,
+          "project_domain": "default",
+          "resource_management_workers": 20,
+          "tree_height": 4,
+          "user_choice_method": "random",
+          "user_domain": "default",
+          "users_per_tenant": 2
+        }
+      },
+      "runner": {
+        "concurrency": 4,
+        "times": 5,
+        "type": "constant"
+      }
+    }
+  ]
+}
